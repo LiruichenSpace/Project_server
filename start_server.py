@@ -285,7 +285,7 @@ def start_server(model_path,ip_addr,port):
     while True:
         csock,addr=server.accept()
         logger.info('incomming connection,ip:{} port:{}'.format(addr[0],addr[1]))
-        sr_model = SRModel(model_path, learning_rate=1e-4)  # 此处的学习率目前看来可以接受，但是不能完全确定
+        sr_model = SRModel(model_path, learning_rate=1e-4,output_frame_num=7)  # 此处的学习率目前看来可以接受，但是不能完全确定
         thread=schedular.datahandler.ClientHandler(csock,sr_model)
         thread_list.append(thread)
         thread.setDaemon(True)
