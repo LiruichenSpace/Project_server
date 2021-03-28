@@ -19,7 +19,7 @@ class SRModelShared(SRModel):
             self.learning_lock = threading.Lock()
             self.pred_lock = self.learning_lock
         model = Sakuya_arch.LunaTokis(64, 3, 8, 5, 40)
-        model.load_state_dict(torch.load('./test/saved_model.pth'), strict=True)
+        model.load_state_dict(torch.load(str(model_path)), strict=True)
         self.train_model = model.to(self.train_device)
         self.train_model.train()
         #定义模型

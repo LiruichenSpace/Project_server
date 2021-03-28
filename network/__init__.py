@@ -49,7 +49,7 @@ def handel_stream(csock):
     assert len(data_len) == struct.calcsize('l'), 'data_len is less than {}, transport error!'.format(
         struct.calcsize('l'))
     data_len = struct.unpack('l', data_len)[0]
-    logger.info(data_len)
+    #logger.info(data_len)
     #data = c_reader.read(data_len)
     if data_len>0:
         data=recvall(csock,data_len)

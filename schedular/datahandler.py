@@ -9,7 +9,28 @@ import torch
 import network
 import utils
 import numpy as np
+import os.path as osp
 from models.SR_model import SRModel
+
+def process_and_save(model,input,save_path,start_index,obj,logger,start_time):
+    model.pred_model.eval()
+    with torch.no_grad():
+        output = model.forward(input)
+    if isinstance(output, list) or isinstance(output, tuple):
+        output = output[0]
+    output = output.data.float().cpu()
+
+    # TODO handle output data here
+    # self.logger.info('output shape:'+str(output.shape))
+    output = output[:, :, :, 0:obj['shape'][1], 0:obj['shape'][0]]  # cut the frames to original size
+
+    for i in range(2):
+        tmp = output[0, i + 1, :, :, :].squeeze(0).squeeze(0).numpy()
+        tmp = tmp.transpose((1, 2, 0))[0:obj['shape'][1], 0:obj['shape'][0], ::-1]
+        #cv2.imwrite(osp.join(save_path,'{}.png'.format(start_index)), tmp * 255.)
+        start_index += 1
+    logger.info(
+        "solved frames:{} , speed:{}/s".format(start_index, start_index / (time.time() - start_time)))
 
 class ClientHandler(threading.Thread):
     #TODO 添加线程对外开放的变量，用来进行调度处理，如模型表现等等
@@ -20,6 +41,8 @@ class ClientHandler(threading.Thread):
         self.terminate=False    #主动停止，用于控制
         self.batch_size=batch_size
         self.logger=logging.getLogger('base')
+        self.count=1
+        self.start_time=time.time()
         self.is_terminated=False#状态变量，用于判断是否结束
     def run(self) -> None:
         plt.ion()
@@ -33,38 +56,66 @@ class ClientHandler(threading.Thread):
                 self.terminate=True
                 break
             if not is_sample:
-                self.logger.info(obj['shape'])
+                #self.logger.info(obj['shape'])
                 # plt.imshow(data)
                 # plt.draw()
                 # plt.show()
                 #resized = cv2.resize(data, (data.shape[1] * 4, data.shape[0] * 4), cv2.INTER_NEAREST) / 255.0
-                data = utils.decode_jpeg(obj['img'])
-                data = data.transpose((2, 0, 1)) /255. # because the original data is 0-255,should
+                curr = utils.decode_jpeg(obj['img'])
+                curr = curr.transpose((2, 0, 1)) /255. # because the original data of jpeg decode is 0-255,should
                 # be scaled to 0-1
                 if prev is None:
-                    prev = data
+                    prev = curr
+                    curr=None
                     continue
                 else:
-                    tmp = data
-                    data = np.stack([prev, data], axis=0)
-                    prev = tmp
+                    data = np.stack([prev, curr], axis=0)
+                    prev = curr
                 data = torch.from_numpy(np.ascontiguousarray(data)).float()
                 data = data.unsqueeze(0)
-                self.logger.info(data.shape)
+                #self.logger.info(data.shape)
+
+                # use multythread here
+                # thread=threading.Thread(target=process_and_save(self.sr_model
+                #                                                 ,data
+                #                                                 ,'/home/wsn/LRC_div/results'
+                #                                                 ,self.count
+                #                                                 ,obj
+                #                                                 ,self.logger
+                #                                                 ,self.start_time))
+                # thread.setDaemon(True)
+                # thread.start()
+                # self.count+=2
+
+
                 self.sr_model.pred_model.eval()
                 with torch.no_grad():
+                    tmp=time.time()
+                    self.logger.info("forward start time:{} s\n".format(time.time() - tmp))
                     output = self.sr_model.forward(data)
+                    self.logger.info("forward use time:{} s\n".format(time.time()-tmp))
                 if isinstance(output, list) or isinstance(output, tuple):
                     output = output[0]
                 output = output.data.float().cpu()
-                #TODO 处理output
-                self.logger.info('output shape:'+str(output.shape))
+
+                #TODO handle output data here
+                #self.logger.info('output shape:'+str(output.shape))
+                output=output[:,:,:,0:obj['shape'][1],0:obj['shape'][0]]#cut the frames to original size
+
                 for i in range(2):
                     tmp=output[0,i+1,:,:,:].squeeze(0).squeeze(0).numpy()
-                    tmp=tmp.transpose((1,2,0))[0:obj['shape'][1],0:obj['shape'][0],:]#切取相同的大小
-                    plt.imshow(tmp)
-                    plt.draw()
-                    plt.show()
+                    tmp=tmp.transpose((1,2,0))[0:obj['shape'][1],0:obj['shape'][0],::-1]
+                    #cv2.imwrite('/home/wsn/LRC_div/results/{}.png'.format(self.count),tmp*255.)
+                    self.count=self.count+1
+                self.logger.info(
+                    "solved frames:{} , speed:{}/s".format(self.count, self.count / (time.time() - self.start_time)))
+
+
+
+                #     plt.imshow(tmp)
+                #     plt.draw()
+                #     plt.show()
+
                 # if cnt % 10 == 0:
                 #     img = output[0, 0, :, :, :].squeeze(0).squeeze(0).numpy()
                 #     img = img.transpose((1, 2, 0))
@@ -80,6 +131,7 @@ class ClientHandler(threading.Thread):
                 #     plt.draw()
                 #     plt.show()
             else:
+                continue
                 data=obj
                 data['LQs'] = [utils.decode_jpeg(lr) for lr in data['LQs']]
                 data['GT'] = [utils.decode_jpeg(hr) for hr in data['GT']]

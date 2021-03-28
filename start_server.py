@@ -42,7 +42,7 @@ def start_server_for_test():
     data_dir = './test'
     if not osp.exists(data_dir):
         os.makedirs(data_dir)
-    fs = open(osp.join(data_dir, 'data.pkl'), 'wb')
+    fs = open(osp.join(data_dir, ''), 'wb')
     while True:
         is_sample,  obj= network.handel_stream(csock)
         data=utils.decode_jpeg(['img'])
@@ -180,7 +180,7 @@ def test_pkl(file_path):
 def test_PSNR(model_path,file_path):
     plt.ion()
     logger = logging.getLogger('base')
-    sr_model = SRModelShared(model_path, learning_rate=5e-4)  # 此处的学习率目前看来可以接受，但是不能完全确定
+    sr_model = SRModel(model_path, learning_rate=5e-4)  # 此处的学习率目前看来可以接受，但是不能完全确定
     fs = open(file_path, 'rb')
     flag = True
     prev = None
@@ -295,9 +295,9 @@ def start_server(model_path,ip_addr,port):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', type=str, default='individual',
-                        help='work mode select,expect \'shared\' or \'individual\',default \'individual\'')
+                        help='work mode select,expect \'shared\' or \'individual\' or \'psnr\',default \'individual\'')
     args = parser.parse_args()
-    utils.setup_logger('base',True)
+    utils.setup_logger('base',False)#default without logfile
     if args.mode=='psnr':
         test_PSNR('./test/10000_G.pth','./test/psnr_data.pkl')
     elif args.mode=='individual':
